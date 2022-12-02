@@ -2,7 +2,7 @@ const DiscordJS = require('discord.js');
 const ytdl = require('ytdl-core-discord');
 const { createAudioPlayer, createAudioResource, getVoiceConnection, joinVoiceChannel, AudioPlayerStatus } = require('@discordjs/voice');
 const STRING = DiscordJS.Constants.ApplicationCommandOptionTypes.STRING;
-const QueueService = require('./../queue/queue.service.js');
+const QueueService = require('./../queue/queue.service');
 
 const description = '음악을 재생합니다.';
 
@@ -25,30 +25,30 @@ const getMusic = async (id) => {
     await QueueService.setQueue(id, queue);
 
     const musicInfo = await ytdl.getBasicInfo(url);
-    const music = await ytdl(url, { quality: 'highestaudio' });
+    const music = await ytdl(url, { 
+        quality: 'highestaudio', 
+        filter: "audioonly", 
+        highWaterMark: 1 << 62,
+        liveBuffer: 1 << 62,
+        dlChunkSize: 0
+    });
     const resource = createAudioResource(music);
 
     return [resource, musicInfo];
 }
 
-const playMusic = async (voiceChannel, player) => {
-    let connection = getVoiceConnection(voiceChannel.guildId);
-    if (!connection) {
-        connection = joinVoiceChannel({
-            channelId: voiceChannel.id,
-            guildId: voiceChannel.guildId,
-            adapterCreator: voiceChannel.guild.voiceAdapterCreator,
-        });
-    }
-
+const playMusic = async (voiceChannel, connection, player, interaction) => {
     const subscription = connection.subscribe(player);
     // if (subscription) {
     //     setTimeout(() => subscription.unsubscribe(), 5_000);
     // }
 
     const [music, musicInfo] = await getMusic(voiceChannel.guildId);
+    if (music === null) { 
+        return;
+    }
     player.play(music);
-    interaction.reply(`노래를 재생할게요!\n${musicInfo.videoDetails.video_url}`);
+    interaction.channel.send(`노래를 재생할게요!\n${musicInfo.videoDetails.video_url}`);
 }
 
 const init = async (interaction, client) => {
@@ -66,19 +66,49 @@ const init = async (interaction, client) => {
         return;
     }
 
+    let connection = getVoiceConnection(voiceChannel.guildId);
+    if (!connection) {
+        connection = joinVoiceChannel({
+            channelId: voiceChannel.id,
+            guildId: voiceChannel.guildId,
+            adapterCreator: voiceChannel.guild.voiceAdapterCreator,
+        });
+    }
+
     const queue = await QueueService.getQueue(guild.id);
     queue.push(url);
     await QueueService.setQueue(guild.id, queue);
+    // 추가 완료 메시지
+    interaction.reply(`추가 완료!`);
     
     const player = createAudioPlayer();
 
     player.on('error', error => {
         console.error(error);
     });
+    
+    connection.on('stateChange', async (oldState, newState) => {
+	    console.log(`Connection transitioned from ${oldState.status} to ${newState.status}`);
 
-    player.on(AudioPlayerStatus.Idle, async () => {
-        await playMusic(voiceChannel, player);
+        if (oldState.status === 'connecting' && newState.status === 'ready') {
+            await playMusic(voiceChannel, connection, player, interaction);
+        }
     });
+
+    player.on('stateChange', async (oldState, newState) => {
+        
+        console.log(`Audio player transitioned from ${oldState.status} to ${newState.status}`);
+
+        if (oldState.status === 'playing' && newState.status === 'idle') {
+            const queue = await QueueService.getQueue(guild.id);
+            if (queue.length === 0) {
+                connection.disconnect();
+            } else {
+                await playMusic(voiceChannel, connection, player, interaction);
+            }
+        }
+    });
+
 };
 
 module.exports = { init, description, options }

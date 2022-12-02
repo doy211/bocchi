@@ -1,8 +1,15 @@
-const { Sequelize } = require('sequelize');
+const { Sequelize, DataTypes } = require('sequelize');
 
 class QueueService {
     constructor() {
         this.sequelize = new Sequelize('sqlite::memory:');
+        this.isInit = false;
+    }
+
+    async initCheck() {
+        if (!this.isInit) {
+            await this.init();
+        }
     }
 
     async init() {
@@ -14,16 +21,24 @@ class QueueService {
                 console.error('Unable to connect to the database:', error);
             });
         this.queue = this.sequelize.define("queue", {
-            id: DataTypes.TEXT,
+            id: {
+                type: DataTypes.TEXT,
+                primaryKey: true
+            },
             dataArray: {
               type: DataTypes.TEXT,
               defaultValue: '[]'
             }
         });
         await this.sequelize.sync({ force: true });
+        this.isInit = true;
+
+        return this;
     }
 
     async getQueue(id) {
+        await this.initCheck();
+
         const queue = await this.queue.findOrCreate({ 
             where: { id },
             defaults: {
@@ -35,6 +50,8 @@ class QueueService {
     }
 
     async setQueue(id, dataArray) {
+        await this.initCheck();
+
         return await this.queue.update({ dataArray: JSON.stringify(dataArray) }, {
             where: { id }
         });
@@ -42,6 +59,4 @@ class QueueService {
 }
 
 const service = new QueueService();
-await service.init();
-
 module.exports = service;

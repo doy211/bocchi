@@ -1,7 +1,14 @@
 const { REST } = require('@discordjs/rest')
 const { Client, Intents } = require('discord.js')
 const { Routes } = require('discord-api-types/v9')
-const client = new Client({ intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES, Intents.FLAGS.GUILD_VOICE_STATES] })
+const client = new Client({
+    autoReconnect: true,
+    retryLimit: Infinity,
+    presence: {
+        status: "idle",
+    },
+    intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES, Intents.FLAGS.GUILD_VOICE_STATES]
+})
 const { generateDependencyReport } = require('@discordjs/voice');
 
 const fs = require('fs');
