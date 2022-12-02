@@ -1,17 +1,18 @@
 const { REST } = require('@discordjs/rest')
 const { Client, Intents } = require('discord.js')
 const { Routes } = require('discord-api-types/v9')
-const client = new Client({ intents: [Intents.FLAGS.GUILDS] })
+const client = new Client({ intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES, Intents.FLAGS.GUILD_VOICE_STATES] })
+const { generateDependencyReport } = require('@discordjs/voice');
 
-const fs = require('fs')
-const path = require('path')
+const fs = require('fs');
+const path = require('path');
 
-let commandTmp = []
-let commands = []
+let commandTmp = [];
+let commands = [];
 
 require('dotenv').config({
     path: path.join(__dirname, '.env'),
-})
+});
 
 const token =
     process.env.NODE_ENV === 'development'
@@ -19,7 +20,8 @@ const token =
         : process.env.TOKEN_PROD
 
 client.once('ready', () => {
-    console.log('Bot Ready!')
+    console.log('Bot Ready!');
+    console.log(generateDependencyReport());
 
     let commandsFiles = fs.readdirSync(path.join(__dirname, './commands'))
 
