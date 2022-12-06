@@ -16,25 +16,31 @@ const options = [
 ];
 
 const getMusic = async (id) => {
-    const queue = await QueueService.getQueue(id);
-    if (queue.length === 0) {
-        return [null, null];
+    try {
+        const queue = await QueueService.getQueue(id);
+        if (queue.length === 0) {
+            return [null, null];
+        }
+    
+        const url = queue.shift();
+        await QueueService.setQueue(id, queue);
+    
+        const musicInfo = await ytdl.getBasicInfo(url);
+        const music = await ytdl(url, { 
+            quality: 'highestaudio', 
+            filter: "audioonly", 
+            highWaterMark: 1 << 62,
+            liveBuffer: 1 << 62,
+            dlChunkSize: 0
+        });
+        const resource = createAudioResource(music);
+    
+        return [resource, musicInfo];
+    } catch (e) {
+        if (e.message.contains('No video id found:')) {
+            return [null, null];
+        }
     }
-
-    const url = queue.shift();
-    await QueueService.setQueue(id, queue);
-
-    const musicInfo = await ytdl.getBasicInfo(url);
-    const music = await ytdl(url, { 
-        quality: 'highestaudio', 
-        filter: "audioonly", 
-        highWaterMark: 1 << 62,
-        liveBuffer: 1 << 62,
-        dlChunkSize: 0
-    });
-    const resource = createAudioResource(music);
-
-    return [resource, musicInfo];
 }
 
 const playMusic = async (voiceChannel, connection, player, interaction) => {
@@ -67,6 +73,11 @@ const init = async (interaction, client) => {
     }
 
     let connection = getVoiceConnection(voiceChannel.guildId);
+    // let connection = joinVoiceChannel({
+    //     channelId: voiceChannel.id,
+    //     guildId: voiceChannel.guildId,
+    //     adapterCreator: voiceChannel.guild.voiceAdapterCreator,
+    // });
     if (!connection) {
         connection = joinVoiceChannel({
             channelId: voiceChannel.id,
@@ -96,13 +107,13 @@ const init = async (interaction, client) => {
     });
 
     player.on('stateChange', async (oldState, newState) => {
-        
         console.log(`Audio player transitioned from ${oldState.status} to ${newState.status}`);
 
         if (oldState.status === 'playing' && newState.status === 'idle') {
             const queue = await QueueService.getQueue(guild.id);
             if (queue.length === 0) {
-                connection.disconnect();
+                connection.destroy();
+                player.stop();
             } else {
                 await playMusic(voiceChannel, connection, player, interaction);
             }
