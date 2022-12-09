@@ -62,4 +62,14 @@ client.on('interactionCreate', async interaction => {
     selectedCommand.init(interaction, client)
 })
 
-client.login(token)
+client.login(token);
+
+// app service startup
+const http = require('http');
+const server = http.createServer((req, res) => { 
+    res.writeHead(200, { 'Content-Type': 'text/html' });
+    res.end('ok');
+});
+server.listen(process.env.PORT, () => { 
+    console.log('app service startup');
+});
