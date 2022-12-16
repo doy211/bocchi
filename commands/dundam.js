@@ -161,7 +161,7 @@ const init = async (interaction, client) => {
     interaction.reply({ embeds: [embed] });
   } catch (e) {
     console.error(e);
-    interaction.reply('내부 오류가 발생했어요!');
+    interaction.reply('내부 오류가 발생했어요!!!');
   }
 };
 
