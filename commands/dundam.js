@@ -8,7 +8,7 @@ require('dotenv').config({
 const STRING = DiscordJS.Constants.ApplicationCommandOptionTypes.STRING;
 
 const apiKey = process.env.NEOPLE_API_KEY;
-const description = '던담에서 내 캐릭터 정보를 가져옵니다.';
+const description = '던담에서 내 캐릭터 정보를 가져옵니다..!';
 
 const options = [
   {
